@@ -66,7 +66,7 @@ int main (int argc, char *argv[]) {
 
 
   //waiting until datagram packet arrives from client
-  //while (1) {
+  while (1) {
     socklen_t len = sizeof(clientaddr);
     //MSG_WAITALL to block until we receive a message
     int n = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &clientaddr, &len);
@@ -74,7 +74,7 @@ int main (int argc, char *argv[]) {
     printf("Client : %s\n", buffer);
     sendto(sock, (char*)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &clientaddr, len);
     printf("Hello message sent.\n");
-  //}
+  }
 
   
 //free the socket
