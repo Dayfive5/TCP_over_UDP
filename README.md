@@ -1,11 +1,14 @@
 # TCP_over_UDP
 Set up TCP mechanisms above the UDP protocol in C (TP3 PRS class)
 
-On one terminal :
 
-$ make
-$ ./server <port_server>
+## On one terminal :
 
-On another one :
+_$ make_
 
-$ ./client <ip_server> <port_server>
+_$ ./server <port_server>_
+
+
+## On another one :
+
+_$ ./client <ip_server> <port_server>_
