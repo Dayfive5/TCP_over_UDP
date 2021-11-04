@@ -7,8 +7,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-
 #define RCVSIZE 1024
+
 
 int main (int argc, char *argv[]) {
 
