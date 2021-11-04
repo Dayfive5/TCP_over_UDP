@@ -8,7 +8,16 @@
 #include <netinet/in.h>
 
 #define RCVSIZE 1024
+#define DATA 0
+#define SYN 1
+#define SYN_ACK 2
+#define ACK 3
+#define END 4
+#define END_ACK 5
 
+typedef struct {   
+  int code;   //code is either DATA, SYN, SYN_ACK, ACK, END or END_ACK
+}TCP_listener;
 
 int main (int argc, char *argv[]) {
 
@@ -16,6 +25,7 @@ int main (int argc, char *argv[]) {
   int port;
   char buffer[RCVSIZE];
   char *hello = "Hello client, it's the server !";
+  int nbytes;
 
 
   //get port
@@ -64,10 +74,38 @@ int main (int argc, char *argv[]) {
     return -1;
   }
 
+  //three-way handshake
+  TCP_listener handshake;
+  int TCP_len = (int) sizeof(handshake);
+  socklen_t len = sizeof(clientaddr);
+  nbytes = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &clientaddr, &len);
+  memcpy(&handshake, buffer, TCP_len); //we copy the memory bloc of buffer in handshake
+  printf("____________________________________\n");
+  printf("Waiting for three-way handshake with the client...\n");
+  printf("SYN received, code : %d, sending SYN_ACK...\n",handshake.code);
+  handshake.code = SYN_ACK;
+  while(1){
+    memcpy(buffer, &handshake, TCP_len);
+    if ((nbytes = sendto(sock, buffer, TCP_len, 0, (struct sockaddr *) &clientaddr, len)) == -1){
+      perror("server: sendto failed");
+      exit(2);
+    }
+    nbytes = recvfrom(sock,buffer,RCVSIZE,0,NULL, NULL);
+    if (nbytes >= TCP_len){
+      memcpy(&handshake, buffer,TCP_len);
+      if(handshake.code == ACK || handshake.code == DATA){
+        break;
+      }
+    }
+  }
+  printf("ACK received, code : %d\n", handshake.code);
+  printf("Connexion established !\n");
+  printf("____________________________________\n");
+
+
 
   //waiting until datagram packet arrives from client
   while (1) {
-    socklen_t len = sizeof(clientaddr);
     //MSG_WAITALL to block until we receive a message
     int n = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &clientaddr, &len);
     buffer[n] = '\0';

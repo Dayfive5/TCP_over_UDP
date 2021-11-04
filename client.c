@@ -7,6 +7,16 @@
 #include <netinet/in.h>
 
 #define RCVSIZE 1024
+#define DATA 0
+#define SYN 1
+#define SYN_ACK 2
+#define ACK 3
+#define END 4
+#define END_ACK 5
+
+typedef struct {   
+  int code;   //code is either DATA, SYN, SYN_ACK, ACK, END or END_ACK
+}TCP_listener;
 
 int main (int argc, char *argv[]) {
 
@@ -15,6 +25,7 @@ int main (int argc, char *argv[]) {
   char addrIP[15];
   char buffer[RCVSIZE];
   char *hello = "Hello server, it's the client !";
+  int nbytes;
 
 
   //get port
@@ -51,14 +62,48 @@ int main (int argc, char *argv[]) {
   servaddr.sin_port= htons(port);
   servaddr.sin_addr.s_addr= htonl(INADDR_ANY);
 
-  //send a message to the server
+  //three-way handshake
+  TCP_listener clihandshake, servhandshake;
+  int TCP_len = (int) sizeof(clihandshake);
+  clihandshake.code = SYN;
+  printf("____________________________________\n");
+  printf("Starting three-way handshake with server...\n");
   socklen_t len = sizeof(servaddr);
+
+  while(1){
+    memcpy(buffer,&clihandshake,TCP_len);
+    if ((nbytes = sendto(sock, buffer, TCP_len,0,(struct sockaddr*) &servaddr, len)) == -1){
+      perror("client : sendto failed");
+      exit(1);
+    }
+    printf("SYN sent (code 1), waiting for SYN_ACK...\n");
+    nbytes = recvfrom(sock,buffer,RCVSIZE,0, (struct sockaddr *) &servaddr, &len);
+    if (nbytes == TCP_len){
+      memcpy(&servhandshake, buffer, TCP_len);
+      break;
+    }
+  }
+  printf("SYN_ACK received, code : %d, sending ACK...\n", servhandshake.code);
+
+  clihandshake.code = ACK;
+  memcpy(buffer,&clihandshake,TCP_len);
+  if ((nbytes = sendto(sock, buffer, TCP_len,0,(struct sockaddr*) &servaddr, len)) == -1){
+      perror("client : sendto failed");
+      exit(1);
+  }
+
+  printf("Connexion established !\n");
+  printf("____________________________________\n");
+
+
+
+  //send a message to the server
   //MSG_CONFIRM to tell the link layer that you got a successful reply from the other side
   sendto(sock, (char *)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
   printf("Hello message sent.\n");
   int n = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &servaddr, &len);
   buffer[n]='\0';
-  printf("Server : %s\n");
+  printf("Server : %s\n", buffer);
 
   
 //free the socket
