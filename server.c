@@ -27,6 +27,7 @@ int main (int argc, char *argv[]) {
 
   struct sockaddr_in servaddr, clientaddr;
   int port;
+  int new_port = 6666;
   char buffer[RCVSIZE];
   char *hello = "Hello client, it's the server !";
   int nbytes;
@@ -87,7 +88,7 @@ int main (int argc, char *argv[]) {
   printf("____________________________________\n");
   printf("Waiting for three-way handshake with the client...\n");
   printf("SYN received, code : %d, sending SYN_ACK...\n",handshake.code);
-  handshake.code = SYN_ACK;
+  handshake.code = SYN_ACK + new_port;
   while(1){
     memcpy(buffer, &handshake, TCP_len);
     if ((nbytes = sendto(sock, buffer, TCP_len, 0, (struct sockaddr *) &clientaddr, len)) == -1){
@@ -108,15 +109,35 @@ int main (int argc, char *argv[]) {
 
   /*------------------CONNEXION ESTABLISHED--------------------*/
   /*---------------------SET NEW PORT--------------------------*/
+  //set a socket for messages
+  int msg_serv = socket(AF_INET, SOCK_DGRAM, 0);
+  if(sock < 0){
+    perror("Can't create socket");
+    return -1;
+  }
+  servaddr.sin_port= htons(new_port);
+  if (bind(msg_serv, (struct sockaddr*) &servaddr, sizeof(servaddr)) < 0) {
+    perror("Bind failed\n");
+    close(msg_serv);
+    return -1;
+  }
+
+  char test[RCVSIZE];
+  int n;
+  int len_test = sizeof(clientaddr);
+  n = recvfrom(msg_serv, (char *)test, RCVSIZE, MSG_WAITALL, ( struct sockaddr *) &clientaddr, &len_test);
+  test[n]='\0';
+  printf("test:%s\n",test);
 
 
   /*----------NEW PORT ESTABLISHED, WAIT FOR CLIENT------------*/
-  
+  /*
   //recieving a text message
   if((receiveTextMsg(sock, buffer, clientaddr, len, hello)) == -1) {
-    printf("Server : recieved message failed");
+    perror("Server : recieved message failed");
     exit(1);
   }
+  */
   /*------------CLIENT ANSWERED : SENDING DATA----------------*/
 
   //receiving a file

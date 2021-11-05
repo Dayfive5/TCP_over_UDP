@@ -25,6 +25,7 @@ int main (int argc, char *argv[]) {
 
   struct sockaddr_in servaddr;
   int port;
+  int new_port;
   char addrIP[15];
   char buffer[RCVSIZE];
   char *hello = "Hello server, it's the client !";
@@ -82,8 +83,14 @@ int main (int argc, char *argv[]) {
     }
     printf("SYN sent (code 1), waiting for SYN_ACK...\n");
     nbytes = recvfrom(sock,buffer,RCVSIZE,0, (struct sockaddr *) &servaddr, &len);
+
     if (nbytes == TCP_len){
       memcpy(&servhandshake, buffer, TCP_len);
+      //extracting the new port for messages
+      new_port = servhandshake.code - SYN_ACK;
+      servhandshake.code = servhandshake.code - new_port;
+      memcpy(buffer, &servhandshake, TCP_len);
+      //printf("new port : %d\n",new_port);
       break;
     }
   }
@@ -100,15 +107,22 @@ int main (int argc, char *argv[]) {
   printf("____________________________________\n");
 
   /*------------------CONNEXION ESTABLISHED--------------------*/
-  /*---------------------SENDING MESSAGE-----------------------*/
+  /*--------------------TESTING NEW PORT-----------------------*/
+  
+  servaddr.sin_port = htons(new_port);
+  char *test="test";  
+  sendto(sock, (char *)test, strlen(test), MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
+  printf("test sent\n");
 
+  /*---------------------SENDING MESSAGE-----------------------*/
+  /*
   //MSG_CONFIRM to tell the link layer that you got a successful reply from the other side
   sendto(sock, (char *)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
   printf("Hello message sent.\n");
   int n = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &servaddr, &len);
   buffer[n]='\0';
   printf("Server : %s\n", buffer);
-  
+  */
 
 /*------------------- END : FREE THE SOCKET ------------------*/ 
 close(sock);
