@@ -15,6 +15,8 @@
 #define END 4
 #define END_ACK 5
 
+int receiveTextMsg(int sock, char buffer[RCVSIZE], struct sockaddr_in clientaddr, socklen_t len, char *hello);
+
 typedef struct {   
   int code;   //code is either DATA, SYN, SYN_ACK, ACK, END or END_ACK
 }TCP_listener;
@@ -102,20 +104,32 @@ int main (int argc, char *argv[]) {
   printf("Connexion established !\n");
   printf("____________________________________\n");
 
-
-
   //waiting until datagram packet arrives from client
   while (1) {
-    //MSG_WAITALL to block until we receive a message
-    int n = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &clientaddr, &len);
-    buffer[n] = '\0';
-    printf("Client : %s\n", buffer);
-    sendto(sock, (char*)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &clientaddr, len);
-    printf("Hello message sent.\n");
+    //recieving a text message
+    if((receiveTextMsg(sock, buffer, clientaddr, len, hello))==-1){
+      printf("Server : recieved message failed");
+      exit(1);
+    }
+
+
+
+    //receiving a file
+
   }
 
   
 //free the socket
 close(sock);
 return 0;
+}
+
+int receiveTextMsg(int sock, char buffer[RCVSIZE], struct sockaddr_in clientaddr, socklen_t len, char *hello){
+  //MSG_WAITALL to block until we receive a message
+  int n = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &clientaddr, &len);
+  buffer[n] = '\0';
+  printf("Client : %s\n", buffer);
+  sendto(sock, (char*)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &clientaddr, len);
+  printf("Hello message sent.\n");
+  return 0;
 }
