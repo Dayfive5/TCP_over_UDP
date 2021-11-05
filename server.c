@@ -23,6 +23,8 @@ typedef struct {
 
 int main (int argc, char *argv[]) {
 
+  /*---------------------INITIALIZATION------------------ */
+
   struct sockaddr_in servaddr, clientaddr;
   int port;
   char buffer[RCVSIZE];
@@ -76,7 +78,7 @@ int main (int argc, char *argv[]) {
     return -1;
   }
 
-  //three-way handshake
+  /*---------------------THREE-WAY HANDSHAKE------------------ */
   TCP_listener handshake;
   int TCP_len = (int) sizeof(handshake);
   socklen_t len = sizeof(clientaddr);
@@ -104,25 +106,39 @@ int main (int argc, char *argv[]) {
   printf("Connexion established !\n");
   printf("____________________________________\n");
 
-  //waiting until datagram packet arrives from client
-  while (1) {
-    //recieving a text message
-    if((receiveTextMsg(sock, buffer, clientaddr, len, hello))==-1){
-      printf("Server : recieved message failed");
-      exit(1);
-    }
+  /*------------------CONNEXION ESTABLISHED--------------------*/
+  /*---------------------SET NEW PORT--------------------------*/
 
 
+  /*----------NEW PORT ESTABLISHED, WAIT FOR CLIENT------------*/
+  
+  //recieving a text message
+  if((receiveTextMsg(sock, buffer, clientaddr, len, hello)) == -1) {
+    printf("Server : recieved message failed");
+    exit(1);
+  }
+  /*------------CLIENT ANSWERED : SENDING DATA----------------*/
 
-    //receiving a file
-
+  //receiving a file
+  while(1){
+    break;
   }
 
-  
-//free the socket
+
+/*------------------- END : FREE THE SOCKET -------------------*/ 
 close(sock);
 return 0;
 }
+
+
+
+/*--------------------------------------------------------------
+
+                            FUNCTIONS
+
+--------------------------------------------------------------*/
+
+
 
 int receiveTextMsg(int sock, char buffer[RCVSIZE], struct sockaddr_in clientaddr, socklen_t len, char *hello){
   //MSG_WAITALL to block until we receive a message

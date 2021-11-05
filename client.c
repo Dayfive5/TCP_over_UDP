@@ -14,11 +14,14 @@
 #define END 4
 #define END_ACK 5
 
+
 typedef struct {   
   int code;   //code is either DATA, SYN, SYN_ACK, ACK, END or END_ACK
 }TCP_listener;
 
 int main (int argc, char *argv[]) {
+
+  /*---------------------INITIALIZATION------------------ */
 
   struct sockaddr_in servaddr;
   int port;
@@ -62,7 +65,8 @@ int main (int argc, char *argv[]) {
   servaddr.sin_port= htons(port);
   servaddr.sin_addr.s_addr= htonl(INADDR_ANY);
 
-  //three-way handshake
+  /*---------------------THREE-WAY HANDSHAKE------------------ */
+
   TCP_listener clihandshake, servhandshake;
   int TCP_len = (int) sizeof(clihandshake);
   clihandshake.code = SYN;
@@ -95,19 +99,27 @@ int main (int argc, char *argv[]) {
   printf("Connexion established !\n");
   printf("____________________________________\n");
 
+  /*------------------CONNEXION ESTABLISHED--------------------*/
+  /*---------------------SENDING MESSAGE-----------------------*/
 
-
-  //send a message to the server
   //MSG_CONFIRM to tell the link layer that you got a successful reply from the other side
   sendto(sock, (char *)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
   printf("Hello message sent.\n");
   int n = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &servaddr, &len);
   buffer[n]='\0';
   printf("Server : %s\n", buffer);
-
   
-//free the socket
+
+/*------------------- END : FREE THE SOCKET ------------------*/ 
 close(sock);
 return 0;
 }
+
+/*--------------------------------------------------------------
+
+                            FUNCTIONS
+
+--------------------------------------------------------------*/
+
+
 
