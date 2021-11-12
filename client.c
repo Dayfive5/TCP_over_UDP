@@ -7,16 +7,14 @@
 #include <netinet/in.h>
 
 #define RCVSIZE 1024
-#define DATA 0
 #define SYN 1
 #define SYN_ACK 2
 #define ACK 3
-#define END 4
-#define END_ACK 5
+
 
 
 typedef struct {   
-  int code;   //code is either DATA, SYN, SYN_ACK, ACK, END or END_ACK
+  int code;   //code is either SYN, SYN_ACK, ACK
 }TCP_listener;
 
 int main (int argc, char *argv[]) {
@@ -130,6 +128,58 @@ int main (int argc, char *argv[]) {
   buffer[n]='\0';
   printf("Server : %s\n", buffer);
   printf("____________________________________\n");
+
+  /*------------SERVER ANSWERED : RECEIVING DATA--------------*/
+  
+  FILE *file;
+  file = fopen("TP3ter.pdf", "a");
+
+  int i = 0;
+  int ackSize = 12;
+  int segSize = 1024; 
+  int chunkSize = 1016;
+  char *receive_chunk = NULL;
+  receive_chunk = malloc(sizeof(char) * (chunkSize + 1));
+  char *seg = NULL;
+  seg = malloc(sizeof(char) * (segSize + 1));
+  char header[8];
+  int n_seq = 0;
+  char *ack;
+  ack = malloc(sizeof(char) * (12 + 1));
+
+  while(1){
+    //receive file
+    i = recvfrom(msg_serv, (char *)seg, segSize, MSG_WAITALL, (struct sockaddr *) &servaddr, &len);
+    seg[i]='\0';
+
+    //parse the data (8 for header, 1016 for data)
+    memcpy(header, seg, 8);
+    header[8]='\0';
+    receive_chunk = seg+8;
+    n_seq = atoi(header);
+
+    //append file
+    fwrite(receive_chunk, sizeof(char), chunkSize, file);
+
+    //ACK each segment
+    memcpy(ack, "ACK_00000000", ackSize);
+    memcpy(ack+4, header, 8);
+
+    //wait
+    usleep(100);
+
+    //send ACKs
+    sendto(msg_serv, (char *)ack, ackSize, MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
+    printf("%s sent.\n", ack);
+
+    //reset buffers
+    memset(ack, '\0', ackSize);
+    memset(header, '\0', 8);
+    memset(seg, '\0', segSize);
+    memset(receive_chunk, '\0', chunkSize);
+  }
+
+
 
 
 /*------------------- END : FREE THE SOCKET ------------------*/ 
