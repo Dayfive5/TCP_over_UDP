@@ -108,23 +108,32 @@ int main (int argc, char *argv[]) {
 
   /*------------------CONNEXION ESTABLISHED--------------------*/
   /*--------------------TESTING NEW PORT-----------------------*/
-  
+  //set a socket for messages
+  int msg_serv = socket(AF_INET, SOCK_DGRAM, 0);
+  if(msg_serv < 0){
+    perror("Can't create socket");
+    return -1;
+  }
   servaddr.sin_port = htons(new_port);
-  char *test="test";  
-  sendto(sock, (char *)test, strlen(test), MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
+  
+  char *test="OK";  
+  sendto(msg_serv, (char *)test, strlen(test), MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
   printf("test sent\n");
+  printf("____________________________________\n");
 
   /*---------------------SENDING MESSAGE-----------------------*/
-  /*
+  
   //MSG_CONFIRM to tell the link layer that you got a successful reply from the other side
-  sendto(sock, (char *)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
+  sendto(msg_serv, (char *)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &servaddr, len);
   printf("Hello message sent.\n");
-  int n = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &servaddr, &len);
+  int n = recvfrom(msg_serv, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &servaddr, &len);
   buffer[n]='\0';
   printf("Server : %s\n", buffer);
-  */
+  printf("____________________________________\n");
+
 
 /*------------------- END : FREE THE SOCKET ------------------*/ 
+close(msg_serv);
 close(sock);
 return 0;
 }
