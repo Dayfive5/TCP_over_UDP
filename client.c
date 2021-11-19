@@ -143,7 +143,7 @@ int main (int argc, char *argv[]) {
   char *seg = NULL;
   seg = malloc(sizeof(char) * (segSize + 1));
   char header[8];
-  int n_seq = 0;
+  //int n_seq = 0;
   char *ack;
   ack = malloc(sizeof(char) * (12 + 1));
 
@@ -152,11 +152,17 @@ int main (int argc, char *argv[]) {
     i = recvfrom(msg_serv, (char *)seg, segSize, MSG_WAITALL, (struct sockaddr *) &servaddr, &len);
     seg[i]='\0';
 
+
+    if((strcmp(seg, "EOF")) == 0){
+      //EOF
+      printf("EOF\n");
+      break;
+    }
     //parse the data (8 for header, 1016 for data)
     memcpy(header, seg, 8);
     header[8]='\0';
     receive_chunk = seg+8;
-    n_seq = atoi(header);
+    //n_seq = atoi(header);
 
     //append file
     fwrite(receive_chunk, sizeof(char), chunkSize, file);

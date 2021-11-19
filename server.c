@@ -295,6 +295,15 @@ int sendFile(struct sockaddr_in clientaddr, struct sockaddr_in servaddr, int msg
         memset(receiver_chunk, '\0', sizeof(receiver_chunk));
       }
       printf("Done !\n");
+      //Envoi d'un EOF au client 
+      int eof;
+      char buffEOF[3];
+      memcpy(buffEOF, "EOF", 3);
+      if ((eof = sendto(msg_serv, buffEOF, sizeof(buffEOF), 0, (struct sockaddr *) &clientaddr, len)) == -1){
+        perror("server: EOF sendto failed");
+        exit(2);
+      }
+
     }
     fclose(fileToReceive);
     fclose(fileToOpen);
