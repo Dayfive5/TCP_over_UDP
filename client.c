@@ -7,15 +7,6 @@
 #include <netinet/in.h>
 
 #define RCVSIZE 1024
-#define SYN 1
-#define SYN_ACK 2
-#define ACK 3
-
-
-
-typedef struct {   
-  int code;   //code is either SYN, SYN_ACK, ACK
-}TCP_listener;
 
 int main (int argc, char *argv[]) {
 
@@ -66,37 +57,30 @@ int main (int argc, char *argv[]) {
 
   /*---------------------THREE-WAY HANDSHAKE------------------ */
 
-  TCP_listener clihandshake, servhandshake;
-  int TCP_len = (int) sizeof(clihandshake);
-  clihandshake.code = SYN;
   printf("____________________________________\n");
   printf("Starting three-way handshake with server...\n");
   socklen_t len = sizeof(servaddr);
 
   while(1){
-    memcpy(buffer,&clihandshake,TCP_len);
-    if ((nbytes = sendto(sock, buffer, TCP_len,0,(struct sockaddr*) &servaddr, len)) == -1){
+    memcpy(buffer,"SYN",3);
+    if ((nbytes = sendto(sock, buffer, 3,0,(struct sockaddr*) &servaddr, len)) == -1){
       perror("client : sendto failed");
       exit(1);
     }
-    printf("SYN sent (code 1), waiting for SYN_ACK...\n");
+    printf("SYN sent, waiting for SYN_ACK...\n");
     nbytes = recvfrom(sock,buffer,RCVSIZE,0, (struct sockaddr *) &servaddr, &len);
 
-    if (nbytes == TCP_len){
-      memcpy(&servhandshake, buffer, TCP_len);
-      //extracting the new port for messages
-      new_port = servhandshake.code - SYN_ACK;
-      servhandshake.code = servhandshake.code - new_port;
-      memcpy(buffer, &servhandshake, TCP_len);
-      //printf("new port : %d\n",new_port);
-      break;
+    new_port = atoi(buffer+7);
+    printf("new port : %d\n",new_port);
+    buffer[7]='\0';
+    if ((strcmp(buffer, "SYN_ACK"))==0){
+        printf("SYN_ACK received, sending ACK...\n");
+        break;
     }
   }
-  printf("SYN_ACK received, code : %d, sending ACK...\n", servhandshake.code);
 
-  clihandshake.code = ACK;
-  memcpy(buffer,&clihandshake,TCP_len);
-  if ((nbytes = sendto(sock, buffer, TCP_len,0,(struct sockaddr*) &servaddr, len)) == -1){
+  memcpy(buffer,"ACK",3);
+  if ((nbytes = sendto(sock, buffer, 3,0,(struct sockaddr*) &servaddr, len)) == -1){
       perror("client : sendto failed");
       exit(1);
   }

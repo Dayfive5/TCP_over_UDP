@@ -11,18 +11,12 @@
 
 
 #define RCVSIZE 1024
-#define SYN 1
-#define SYN_ACK 2
-#define ACK 3
 
 
 int receiveTextMsg(int sock, char buffer[RCVSIZE], struct sockaddr_in clientaddr, socklen_t len, char *hello);
 int sendWaitACK(int msg_serv, struct sockaddr_in clientaddr, struct sockaddr_in servaddr, char *seg, int segSize, int timeoutUsec);
 int sendFile(struct sockaddr_in clientaddr, struct sockaddr_in servaddr, int msg_serv);
 
-typedef struct {   
-  int code;   //code is either SYN, SYN_ACK, ACK
-}TCP_listener;
 
 int main (int argc, char *argv[]) {
 
@@ -30,7 +24,8 @@ int main (int argc, char *argv[]) {
 
   struct sockaddr_in servaddr, clientaddr;
   int port;
-  int new_port = 6667;
+  char* new_port_string="6667";
+  int new_port = atoi(new_port_string);
   char buffer[RCVSIZE];
   char *hello = "Hello client, it's the server !";
   int nbytes;
@@ -83,15 +78,15 @@ int main (int argc, char *argv[]) {
   }
 
   /*---------------------THREE-WAY HANDSHAKE------------------ */
-  TCP_listener handshake;
-  int TCP_len = (int) sizeof(handshake);
+  
   socklen_t len = sizeof(clientaddr);
   nbytes = recvfrom(sock, (char *)buffer, RCVSIZE, MSG_WAITALL, (struct sockaddr *) &clientaddr, &len);
-  memcpy(&handshake, buffer, TCP_len); //we copy the memory bloc of buffer in handshake
+  
   printf("____________________________________\n");
   printf("Waiting for three-way handshake with the client...\n");
-  printf("SYN received, code : %d, sending SYN_ACK...\n",handshake.code);
-
+  if ((strcmp(buffer, "SYN"))==0){
+        printf("SYN received, sending SYN_ACK and new port...\n");
+    }
   //set a socket for messages
   int msg_serv = socket(AF_INET, SOCK_DGRAM, 0);
   if(msg_serv < 0){
@@ -106,25 +101,23 @@ int main (int argc, char *argv[]) {
   }
 
   //server ready, sending SYNACK + new port
-  handshake.code = SYN_ACK + new_port;
-  /*****************************************************************
-  //TO DO :::: essayer d'envoyer le port + syn_ack avec une chaine de caractere (utiliser strncat(SYN_ACK, new_port))
-  *****************************************************************/
+  memcpy(buffer, "SYN_ACK", 7);
+  strncat(buffer, new_port_string, 4);
+  
   while(1){
-    memcpy(buffer, &handshake, TCP_len);
-    if ((nbytes = sendto(sock, buffer, TCP_len, 0, (struct sockaddr *) &clientaddr, len)) == -1){
+    if ((nbytes = sendto(sock, buffer, 11, 0, (struct sockaddr *) &clientaddr, len)) == -1){
       perror("server: sendto failed");
       exit(2);
     }
+    memset(buffer, '\0', sizeof(buffer));
+
     nbytes = recvfrom(sock,buffer,RCVSIZE,0,NULL, NULL);
-    if (nbytes >= TCP_len){
-      memcpy(&handshake, buffer,TCP_len);
-      if(handshake.code == ACK){
-        break;
-      }
+    
+    if ((strcmp(buffer, "ACK"))==0){
+      printf("ACK received\n");
+      break;
     }
   }
-  printf("ACK received, code : %d\n", handshake.code);
   printf("Connexion established !\n");
   printf("____________________________________\n");
 

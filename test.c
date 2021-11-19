@@ -5,10 +5,10 @@
 int main (int argc, char *argv[]) {
 
 	char * seg = NULL;
-	seg = "00000000";
+	seg = "01234567";
 	printf("%s\n", seg);
 
-	seg = seg+7;
+	seg = seg+1;
 	printf("%s\n", seg);
 	return 0;
 }
