@@ -6,19 +6,22 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/select.h>
+#include <sys/time.h>
+
 
 #define RCVSIZE 1024
-#define DATA 0
 #define SYN 1
 #define SYN_ACK 2
 #define ACK 3
-#define END 4
-#define END_ACK 5
+
 
 int receiveTextMsg(int sock, char buffer[RCVSIZE], struct sockaddr_in clientaddr, socklen_t len, char *hello);
+int sendWaitACK(int msg_serv, struct sockaddr_in clientaddr, struct sockaddr_in servaddr, char *seg, int segSize, int timeoutUsec);
+int sendFile(struct sockaddr_in clientaddr, struct sockaddr_in servaddr, int msg_serv);
 
 typedef struct {   
-  int code;   //code is either DATA, SYN, SYN_ACK, ACK, END or END_ACK
+  int code;   //code is either SYN, SYN_ACK, ACK
 }TCP_listener;
 
 int main (int argc, char *argv[]) {
@@ -104,6 +107,9 @@ int main (int argc, char *argv[]) {
 
   //server ready, sending SYNACK + new port
   handshake.code = SYN_ACK + new_port;
+  /*****************************************************************
+  //TO DO :::: essayer d'envoyer le port + syn_ack avec une chaine de caractere (utiliser strncat(SYN_ACK, new_port))
+  *****************************************************************/
   while(1){
     memcpy(buffer, &handshake, TCP_len);
     if ((nbytes = sendto(sock, buffer, TCP_len, 0, (struct sockaddr *) &clientaddr, len)) == -1){
@@ -113,7 +119,7 @@ int main (int argc, char *argv[]) {
     nbytes = recvfrom(sock,buffer,RCVSIZE,0,NULL, NULL);
     if (nbytes >= TCP_len){
       memcpy(&handshake, buffer,TCP_len);
-      if(handshake.code == ACK || handshake.code == DATA){
+      if(handshake.code == ACK){
         break;
       }
     }
@@ -136,7 +142,7 @@ int main (int argc, char *argv[]) {
   
   /*----------NEW PORT ESTABLISHED, WAIT FOR CLIENT------------*/
   
-  //recieving a text message
+  //receiving a text message
   if((receiveTextMsg(msg_serv, buffer, clientaddr, len, hello)) == -1) {
     perror("Server : received message failed");
     exit(1);
@@ -145,10 +151,8 @@ int main (int argc, char *argv[]) {
 
   /*------------CLIENT ANSWERED : SENDING DATA----------------*/
 
-  //receiving a file
-  while(1){
-    break;
-  }
+  //fragment and send a file
+  sendFile(clientaddr, servaddr, msg_serv);
 
 
 /*------------------- END : FREE THE SOCKET -------------------*/ 
@@ -174,5 +178,178 @@ int receiveTextMsg(int sock, char buffer[RCVSIZE], struct sockaddr_in clientaddr
   printf("Client : %s\n", buffer);
   sendto(sock, (char*)hello, strlen(hello), MSG_CONFIRM, (struct sockaddr *) &clientaddr, len);
   printf("Hello message sent.\n");
+  return 0;
+}
+
+
+int sendFile(struct sockaddr_in clientaddr, struct sockaddr_in servaddr, int msg_serv){
+  int len = sizeof(clientaddr);
+
+  FILE* fileToOpen;
+  FILE* fileToReceive;
+
+  fileToOpen = fopen("TP3.pdf", "r");
+  fileToReceive = fopen("TP3bis.pdf", "a");
+
+  //creating a buffer to put the file content 
+  char *buf = NULL;
+
+  //make sure the file isn't NULL
+  if(fileToOpen != NULL){
+
+    //reach the EOF (0L = long int with all his bits = 0)
+    if(fseek(fileToOpen, 0L, SEEK_END) == 0){
+
+      //get the file's size (ftell() reads the value of the stream indicator pointed by fileToOpen)
+      long bufferSize = ftell(fileToOpen);
+      if(bufferSize == -1){
+        printf("Error : can't get the size of the file\n");
+        exit(1);
+      }
+
+      //allocate the needed memory to the buffer
+      buf = malloc(sizeof(char)* (bufferSize+1));
+
+      //now go back to the start of the file
+      if(fseek(fileToOpen, 0L, SEEK_SET) != 0) {
+        printf("Error : can't go back to the start of the file\n");
+        exit(1);
+      }
+
+      //read the file in our buffer
+      size_t new_len = fread(buf, sizeof(char), bufferSize, fileToOpen);
+      if(ferror(fileToOpen) != 0) {
+        printf("Error : can't read file in memory\n");
+      } else {
+        //we make sure to have an EOF at the end of the buffer
+        buf[new_len++] = '\0';
+      }
+
+      //divide buf in several segments 
+      
+      //sizes of our buffers
+      int segSize = 1024; //total size of the segment
+      int headerSize = 8; //segment ID 
+      int chunkSize = 1016; //chunk of data to send
+
+      //create the buffers
+      int countdown = new_len;
+      char * seg = NULL;
+      seg = malloc(sizeof(char) *(segSize+1));
+      char chunk[chunkSize];
+      char header[headerSize];
+      char * receiver_chunk = NULL;
+      receiver_chunk = malloc(sizeof(char) *(chunkSize+1));
+
+      //to count the packets
+      int count = 0;
+
+      //start fragmentation
+      int bytestoCopy;
+
+      while(countdown){
+        //choose the amount of bytes to send
+        if(countdown > chunkSize){
+          bytestoCopy = chunkSize;
+        } else {
+          bytestoCopy = countdown;
+        }
+        memcpy(chunk, buf, bytestoCopy);
+        buf = buf + bytestoCopy;
+        countdown = countdown - bytestoCopy;
+
+        //set an ID for the segment to put in the header
+        count ++;
+        sprintf(header, "%d", count); //sprintf writes the ID (count) in the buffer header
+        
+        memcpy(seg, "00000000", headerSize);
+        
+        if(count<10){
+          memcpy(seg+7, header, headerSize);
+          //seg+7 -> "0" in the header because count between 1 and 9
+        }
+        else if(count<100){
+          memcpy(seg+6, header, headerSize);
+          //seg+6 -> "00" in the header because count between 10 and 99
+        }
+        else if(count<1000){
+          memcpy(seg+5, header, headerSize);          
+          //seg+7 -> "000" in the header because count between 100 and 999
+        }
+
+        //put the chunk in the segment to send
+        memcpy(seg+8, chunk, sizeof(chunk));
+
+        //send the file to the client and wait for an ACK
+        sendWaitACK(msg_serv, clientaddr, servaddr, seg, segSize,10);
+        printf("Sending file...\n");
+
+        //reset the buffers
+        memset(seg, '\0', sizeof(seg));
+        memset(chunk, '\0', sizeof(chunk));
+        memset(header, '\0', sizeof(header));
+
+        //receiver
+        receiver_chunk = seg+8;
+        fwrite(receiver_chunk, sizeof(char), chunkSize, fileToReceive);
+        memset(receiver_chunk, '\0', sizeof(receiver_chunk));
+      }
+      printf("Done !\n");
+      //Envoi d'un EOF au client 
+      int eof;
+      char buffEOF[3];
+      memcpy(buffEOF, "EOF", 3);
+      if ((eof = sendto(msg_serv, buffEOF, sizeof(buffEOF), 0, (struct sockaddr *) &clientaddr, len)) == -1){
+        perror("server: EOF sendto failed");
+        exit(2);
+      }
+
+    }
+    fclose(fileToReceive);
+    fclose(fileToOpen);
+  }
+  return 0;
+}
+
+int sendWaitACK(int msg_serv, struct sockaddr_in clientaddr, struct sockaddr_in servaddr, char *seg, int segSize, int timeoutUsec){
+  
+  int receiveSize = 12;
+  char receiveACK[receiveSize];
+  int n;
+  int len = sizeof(clientaddr);
+
+  //file descriptor for select()
+  fd_set sock_set;
+
+  //time structures
+  struct timeval stop, start, timeout;
+
+  //send segment to the client
+  sendto(msg_serv, (char *)seg, segSize, MSG_CONFIRM, (struct sockaddr *) &clientaddr, len);
+  printf("Segment sent\n");
+
+  //fd_set set up
+  FD_ZERO(&sock_set);
+  FD_SET(msg_serv, &sock_set);
+
+  //init timeout (timeout = timeoutUsec (µsec))
+  timeout.tv_sec = 0;
+  timeout.tv_usec = timeoutUsec;
+
+  //start timer
+  gettimeofday(&start, NULL);
+
+  //wait for segment
+  if (select(1, &sock_set, NULL, NULL, &timeout) == 0){
+    printf("Timeout\n");
+  } else {
+    gettimeofday(&stop, NULL);
+    n = recvfrom(msg_serv, (char *)receiveACK, receiveSize, MSG_WAITALL, (struct sockaddr *) &clientaddr, &len);
+    printf("This operation took %lu µs.\n", (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec);
+    receiveACK[n]='\0';
+    printf("ACK from client : %s\n", receiveACK);
+  }
+  //reset the buffer
+  memset(receiveACK, '\0', sizeof(receiveSize));
   return 0;
 }
